@@ -12,7 +12,7 @@ func Up0001(tx *sql.Tx) error {
 			starts_at timestamp NOT NULL DEFAULT NOW(),
 			duration varchar(32) NOT NULL,
 			description text,
-			owner_id bigint NOT NULL,
+			owner_id varchar(36) NOT NULL,
 			notify_before varchar(32)
 		);
 	`

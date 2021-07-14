@@ -85,7 +85,7 @@ func (s *StorageTestSuite) TestDelete() {
 func (s *StorageTestSuite) TestList() {
 	date := time.Date(2021, 6, 20, 0, 0, 0, 0, time.Local)
 	event1 := storage.Event{ID: faker.UUID(), StartsAt: date.Add(90 * time.Minute)}
-	event2 := storage.Event{ID: faker.UUID(), StartsAt: date.AddDate(0, 0, 1)}
+	event2 := storage.Event{ID: faker.UUID(), StartsAt: date.AddDate(0, 0, 2)}
 
 	s.storage.CreateEvent(context.TODO(), event1)
 	s.storage.CreateEvent(context.TODO(), event2)

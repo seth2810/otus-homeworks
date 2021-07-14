@@ -85,11 +85,13 @@ func startApp(ctx context.Context, cfg *config.Config) error {
 
 	calendar := app.New(log, storage)
 
-	grpcAddress := net.JoinHostPort(cfg.Server.Grpc.Host, cfg.Server.Grpc.Port)
+	grpcAddress := net.JoinHostPort(cfg.Server.GRPC.Host, cfg.Server.GRPC.Port)
 	httpAddress := net.JoinHostPort(cfg.Server.HTTP.Host, cfg.Server.HTTP.Port)
 
 	grpcServer := internalgrpc.NewServer(grpcAddress, log, calendar)
 	httpServer := internalhttp.NewServer(httpAddress, grpcAddress, log)
+
+	errCh := make(chan error, 2)
 
 	go func() {
 		<-ctx.Done()
@@ -98,18 +100,22 @@ func startApp(ctx context.Context, cfg *config.Config) error {
 
 		defer cancelFn()
 
+		log.Info("http is stopping...")
+
 		if err := httpServer.Stop(ctx); err != nil {
 			log.Error(fmt.Sprintln("failed to stop http server:", err))
 		}
 
+		log.Info("grpc is stopping...")
+
 		if err := grpcServer.Stop(); err != nil {
 			log.Error(fmt.Sprintln("failed to stop grpc server:", err))
 		}
+
+		errCh <- nil
 	}()
 
 	log.Info("calendar is running...")
-
-	errCh := make(chan error, 2)
 
 	go func() {
 		log.Info("grpc is running...")

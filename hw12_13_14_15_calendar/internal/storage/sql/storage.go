@@ -80,7 +80,7 @@ func (s *Storage) ListMonthEvents(ctx context.Context, date time.Time) ([]storag
 func (s *Storage) listEventsBetween(ctx context.Context, from, to time.Time) ([]storage.Event, error) {
 	events := []storage.Event{}
 
-	if err := s.db.SelectContext(ctx, &events, "select * from events where starts_at between ? and ?", from, to); err != nil {
+	if err := s.db.SelectContext(ctx, &events, "select * from events where starts_at between ? and ?", from.String(), to.String()); err != nil {
 		return nil, err
 	}
 

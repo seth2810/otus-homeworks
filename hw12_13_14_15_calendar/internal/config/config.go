@@ -31,14 +31,14 @@ type DatabaseConfig struct {
 
 type ServerConf struct {
 	HTTP HTTPConf
-	Grpc GrpcConf
+	GRPC GRPCConf
 }
 
 type HTTPConf struct {
 	Host, Port string
 }
 
-type GrpcConf struct {
+type GRPCConf struct {
 	Host, Port string
 }
 

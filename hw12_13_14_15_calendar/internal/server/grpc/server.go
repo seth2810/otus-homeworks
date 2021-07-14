@@ -5,11 +5,12 @@ import (
 	"net"
 	"time"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_validator "github.com/grpc-ecosystem/go-grpc-middleware/validator"
+	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpcvalidator "github.com/grpc-ecosystem/go-grpc-middleware/validator"
 	"github.com/seth2810/otus_homework/hw12_13_14_15_calendar/internal/server/grpc/pb"
 	"github.com/seth2810/otus_homework/hw12_13_14_15_calendar/internal/storage"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 type Server struct {
@@ -39,11 +40,13 @@ func NewServer(address string, logger Logger, app Application) *Server {
 
 func (s *Server) Start(ctx context.Context) error {
 	s.server = grpc.NewServer(
-		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+		grpc.UnaryInterceptor(grpcmiddleware.ChainUnaryServer(
 			loggingInterceptor(s.logger),
-			grpc_validator.UnaryServerInterceptor(),
+			grpcvalidator.UnaryServerInterceptor(),
 		)),
 	)
+
+	reflection.Register(s.server)
 
 	pb.RegisterCalendarServiceServer(s.server, s.service)
 
@@ -56,9 +59,7 @@ func (s *Server) Start(ctx context.Context) error {
 		return err
 	}
 
-	<-ctx.Done()
-
-	return s.Stop()
+	return nil
 }
 
 func (s *Server) Stop() error {
