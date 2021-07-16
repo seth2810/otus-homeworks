@@ -35,7 +35,7 @@ type Application interface {
 }
 
 func NewServer(address string, logger Logger, app Application) *Server {
-	return &Server{address, logger, nil, &calendarServiceServer{app: app}}
+	return &Server{address, logger, nil, NewService(app)}
 }
 
 func (s *Server) Start(ctx context.Context) error {

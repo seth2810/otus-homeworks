@@ -1,0 +1,18 @@
+logger:
+  level: info
+  file: /dev/stdout
+
+database:
+  host: localhost
+  port: 5432
+  user: calendar
+  password: calendar
+  db: calendar
+
+rmq:
+  host: localhost
+  port: 5672
+  user: guest
+  password: guest
+
+interval: 10s

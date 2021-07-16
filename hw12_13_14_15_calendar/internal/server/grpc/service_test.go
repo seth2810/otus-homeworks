@@ -1,4 +1,4 @@
-package internalgrpc
+package internalgrpc_test
 
 import (
 	"context"
@@ -10,8 +10,9 @@ import (
 	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpcvalidator "github.com/grpc-ecosystem/go-grpc-middleware/validator"
 	"github.com/pioz/faker"
-	"github.com/seth2810/otus_homework/hw12_13_14_15_calendar/internal/app"
+	"github.com/seth2810/otus_homework/hw12_13_14_15_calendar/internal/calendar"
 	"github.com/seth2810/otus_homework/hw12_13_14_15_calendar/internal/logger"
+	internalgrpc "github.com/seth2810/otus_homework/hw12_13_14_15_calendar/internal/server/grpc"
 	"github.com/seth2810/otus_homework/hw12_13_14_15_calendar/internal/server/grpc/pb"
 	memorystorage "github.com/seth2810/otus_homework/hw12_13_14_15_calendar/internal/storage/memory"
 	"github.com/stretchr/testify/require"
@@ -24,7 +25,7 @@ import (
 
 type dialer func(context.Context, string) (net.Conn, error)
 
-func createDialer(app Application) dialer {
+func createDialer(app internalgrpc.Application) dialer {
 	listener := bufconn.Listen(1024 * 1024)
 
 	server := grpc.NewServer(
@@ -33,7 +34,7 @@ func createDialer(app Application) dialer {
 		)),
 	)
 
-	pb.RegisterCalendarServiceServer(server, &calendarServiceServer{app: app})
+	pb.RegisterCalendarServiceServer(server, internalgrpc.NewService(app))
 
 	go func() {
 		if err := server.Serve(listener); err != nil {
@@ -59,7 +60,7 @@ func (s *GRPCTestSuite) SetupSuite() {
 		context.TODO(),
 		"",
 		grpc.WithInsecure(),
-		grpc.WithContextDialer(createDialer(app.New(logger, storage))),
+		grpc.WithContextDialer(createDialer(calendar.New(logger, storage))),
 	)
 
 	require.NoError(s.T(), err)

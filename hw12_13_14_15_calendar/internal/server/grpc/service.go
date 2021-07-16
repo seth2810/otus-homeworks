@@ -16,12 +16,16 @@ import (
 
 var ErrDateIsRequired = errors.New("date is required")
 
-type calendarServiceServer struct {
+type service struct {
 	app Application
 	pb.UnimplementedCalendarServiceServer
 }
 
-func (s *calendarServiceServer) CreateEvent(ctx context.Context, req *pb.CreateEventRequest) (*pb.CreateEventResponse, error) {
+func NewService(app Application) pb.CalendarServiceServer {
+	return &service{app: app}
+}
+
+func (s *service) CreateEvent(ctx context.Context, req *pb.CreateEventRequest) (*pb.CreateEventResponse, error) {
 	id := uuid.New()
 
 	if err := s.app.CreateEvent(ctx, id.String(), req.GetTitle()); err != nil {
@@ -31,7 +35,7 @@ func (s *calendarServiceServer) CreateEvent(ctx context.Context, req *pb.CreateE
 	return &pb.CreateEventResponse{Id: id.String()}, nil
 }
 
-func (s *calendarServiceServer) UpdateEvent(ctx context.Context, req *pb.UpdateEventRequest) (*pb.UpdateEventResponse, error) {
+func (s *service) UpdateEvent(ctx context.Context, req *pb.UpdateEventRequest) (*pb.UpdateEventResponse, error) {
 	event := storage.Event{
 		ID:           req.GetId(),
 		Title:        req.GetTitle(),
@@ -48,7 +52,7 @@ func (s *calendarServiceServer) UpdateEvent(ctx context.Context, req *pb.UpdateE
 	return &pb.UpdateEventResponse{Event: req}, nil
 }
 
-func (s *calendarServiceServer) DeleteEvent(ctx context.Context, req *pb.DeleteEventRequest) (*emptypb.Empty, error) {
+func (s *service) DeleteEvent(ctx context.Context, req *pb.DeleteEventRequest) (*emptypb.Empty, error) {
 	if err := s.app.DeleteEvent(ctx, req.GetId()); err != nil {
 		return nil, status.Errorf(codes.Internal, "event delete error: %s", err)
 	}
@@ -56,7 +60,7 @@ func (s *calendarServiceServer) DeleteEvent(ctx context.Context, req *pb.DeleteE
 	return &emptypb.Empty{}, nil
 }
 
-func (s *calendarServiceServer) ListDayEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
+func (s *service) ListDayEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
 	events, err := s.app.ListDayEvents(ctx, req.GetDate().AsTime())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "list day events error: %s", err)
@@ -65,7 +69,7 @@ func (s *calendarServiceServer) ListDayEvents(ctx context.Context, req *pb.ListE
 	return &pb.ListEventsResponse{Events: formatResponseEvents(events)}, nil
 }
 
-func (s *calendarServiceServer) ListWeekEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
+func (s *service) ListWeekEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
 	events, err := s.app.ListWeekEvents(ctx, req.GetDate().AsTime())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "list week events error: %s", err)
@@ -74,7 +78,7 @@ func (s *calendarServiceServer) ListWeekEvents(ctx context.Context, req *pb.List
 	return &pb.ListEventsResponse{Events: formatResponseEvents(events)}, nil
 }
 
-func (s *calendarServiceServer) ListMonthEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
+func (s *service) ListMonthEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
 	events, err := s.app.ListMonthEvents(ctx, req.GetDate().AsTime())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "list month events error: %s", err)
