@@ -11,3 +11,10 @@ type Event struct {
 	OwnerID      string        `db:"owner_id"`
 	NotifyBefore time.Duration `db:"notify_before"`
 }
+
+type EventNotification struct {
+	ID       string    `json:"id"`
+	Title    string    `json:"title"`
+	StartsAt time.Time `json:"starts_at"`
+	UserID   string    `json:"user_id"`
+}

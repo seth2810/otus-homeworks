@@ -2,6 +2,7 @@ package internalhttp
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -42,13 +43,11 @@ func (s *Server) Start(ctx context.Context) error {
 		Handler: loggingMiddleware(mux, s.logger),
 	}
 
-	if err := s.server.ListenAndServe(); err != nil {
+	if err := s.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 
-	<-ctx.Done()
-
-	return s.Stop(ctx)
+	return nil
 }
 
 func (s *Server) Stop(ctx context.Context) error {

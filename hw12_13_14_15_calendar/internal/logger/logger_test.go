@@ -20,7 +20,7 @@ func (s *LoggerTestSuite) BeforeTest(suiteName, testName string) {
 }
 
 func (s *LoggerTestSuite) TearDownTest() {
-	s.Require().NoError(os.Remove(s.output.Name()))
+	require.NoError(s.T(), os.Remove(s.output.Name()))
 }
 
 func (s *LoggerTestSuite) TestWrongLevel() {

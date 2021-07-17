@@ -1,4 +1,4 @@
-package internalgrpc
+package internalgrpc_test
 
 import (
 	"context"
@@ -7,11 +7,12 @@ import (
 	"testing"
 	"time"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_validator "github.com/grpc-ecosystem/go-grpc-middleware/validator"
+	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpcvalidator "github.com/grpc-ecosystem/go-grpc-middleware/validator"
 	"github.com/pioz/faker"
-	"github.com/seth2810/otus_homework/hw12_13_14_15_calendar/internal/app"
+	"github.com/seth2810/otus_homework/hw12_13_14_15_calendar/internal/calendar"
 	"github.com/seth2810/otus_homework/hw12_13_14_15_calendar/internal/logger"
+	internalgrpc "github.com/seth2810/otus_homework/hw12_13_14_15_calendar/internal/server/grpc"
 	"github.com/seth2810/otus_homework/hw12_13_14_15_calendar/internal/server/grpc/pb"
 	memorystorage "github.com/seth2810/otus_homework/hw12_13_14_15_calendar/internal/storage/memory"
 	"github.com/stretchr/testify/require"
@@ -24,16 +25,16 @@ import (
 
 type dialer func(context.Context, string) (net.Conn, error)
 
-func createDialer(app Application) dialer {
+func createDialer(app internalgrpc.Application) dialer {
 	listener := bufconn.Listen(1024 * 1024)
 
 	server := grpc.NewServer(
-		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
-			grpc_validator.UnaryServerInterceptor(),
+		grpc.UnaryInterceptor(grpcmiddleware.ChainUnaryServer(
+			grpcvalidator.UnaryServerInterceptor(),
 		)),
 	)
 
-	pb.RegisterCalendarServiceServer(server, &calendarServiceServer{app: app})
+	pb.RegisterCalendarServiceServer(server, internalgrpc.NewService(app))
 
 	go func() {
 		if err := server.Serve(listener); err != nil {
@@ -59,10 +60,11 @@ func (s *GRPCTestSuite) SetupSuite() {
 		context.TODO(),
 		"",
 		grpc.WithInsecure(),
-		grpc.WithContextDialer(createDialer(app.New(logger, storage))),
+		grpc.WithContextDialer(createDialer(calendar.New(logger, storage))),
 	)
 
-	s.Require().NoError(err)
+	require.NoError(s.T(), err)
+
 	s.conn = conn
 	s.client = pb.NewCalendarServiceClient(conn)
 }
@@ -73,9 +75,9 @@ func (s *GRPCTestSuite) TearDownSuite() {
 
 func (s *GRPCTestSuite) TestListErrors() {
 	test := struct {
-		req           *pb.ListRequest
+		req           *pb.ListEventsRequest
 		expectedError string
-	}{&pb.ListRequest{}, "rpc error: code = InvalidArgument desc = invalid ListRequest.Date: value is required"}
+	}{&pb.ListEventsRequest{}, "rpc error: code = InvalidArgument desc = invalid ListEventsRequest.Date: value is required"}
 
 	_, err := s.client.ListDayEvents(context.TODO(), test.req)
 	require.EqualError(s.T(), err, test.expectedError)
@@ -88,19 +90,19 @@ func (s *GRPCTestSuite) TestListErrors() {
 }
 
 func (s *GRPCTestSuite) TestEmpty() {
-	res, err := s.client.ListDayEvents(context.TODO(), &pb.ListRequest{
+	res, err := s.client.ListDayEvents(context.TODO(), &pb.ListEventsRequest{
 		Date: timestamppb.Now(),
 	})
 	require.NoError(s.T(), err)
 	require.Len(s.T(), res.GetEvents(), 0)
 
-	res, err = s.client.ListWeekEvents(context.TODO(), &pb.ListRequest{
+	res, err = s.client.ListWeekEvents(context.TODO(), &pb.ListEventsRequest{
 		Date: timestamppb.Now(),
 	})
 	require.NoError(s.T(), err)
 	require.Len(s.T(), res.GetEvents(), 0)
 
-	res, err = s.client.ListMonthEvents(context.TODO(), &pb.ListRequest{
+	res, err = s.client.ListMonthEvents(context.TODO(), &pb.ListEventsRequest{
 		Date: timestamppb.Now(),
 	})
 	require.NoError(s.T(), err)
@@ -108,14 +110,14 @@ func (s *GRPCTestSuite) TestEmpty() {
 }
 
 func (s *GRPCTestSuite) TestCreateErrors() {
-	_, err := s.client.CreateEvent(context.TODO(), &pb.CreateRequest{
+	_, err := s.client.CreateEvent(context.TODO(), &pb.CreateEventRequest{
 		Title: faker.StringWithSize(9),
 	})
-	require.EqualError(s.T(), err, "rpc error: code = InvalidArgument desc = invalid CreateRequest.Title: value length must be at least 10 runes")
+	require.EqualError(s.T(), err, "rpc error: code = InvalidArgument desc = invalid CreateEventRequest.Title: value length must be at least 10 runes")
 }
 
 func (s *GRPCTestSuite) TestCreate() {
-	res, err := s.client.CreateEvent(context.TODO(), &pb.CreateRequest{
+	res, err := s.client.CreateEvent(context.TODO(), &pb.CreateEventRequest{
 		Title: faker.StringWithSize(10),
 	})
 	require.NoError(s.T(), err)
@@ -124,36 +126,36 @@ func (s *GRPCTestSuite) TestCreate() {
 
 func (s *GRPCTestSuite) TestUpdateErrors() {
 	tests := []struct {
-		req           *pb.UpdateRequest
+		req           *pb.UpdateEventRequest
 		expectedError string
 	}{
 		{
-			&pb.UpdateRequest{},
-			"rpc error: code = InvalidArgument desc = invalid UpdateRequest.Id: value must be a valid UUID | caused by: invalid uuid format",
+			&pb.UpdateEventRequest{},
+			"rpc error: code = InvalidArgument desc = invalid UpdateEventRequest.Id: value must be a valid UUID | caused by: invalid uuid format",
 		},
 		{
-			&pb.UpdateRequest{
+			&pb.UpdateEventRequest{
 				Id: faker.UUID(),
 			},
-			"rpc error: code = InvalidArgument desc = invalid UpdateRequest.Title: value length must be at least 10 runes",
+			"rpc error: code = InvalidArgument desc = invalid UpdateEventRequest.Title: value length must be at least 10 runes",
 		},
 		{
-			&pb.UpdateRequest{
+			&pb.UpdateEventRequest{
 				Id:    faker.UUID(),
 				Title: faker.StringWithSize(10),
 			},
-			"rpc error: code = InvalidArgument desc = invalid UpdateRequest.StartsAt: value is required",
+			"rpc error: code = InvalidArgument desc = invalid UpdateEventRequest.StartsAt: value is required",
 		},
 		{
-			&pb.UpdateRequest{
+			&pb.UpdateEventRequest{
 				Id:       faker.UUID(),
 				Title:    faker.StringWithSize(10),
 				StartsAt: timestamppb.Now(),
 			},
-			"rpc error: code = InvalidArgument desc = invalid UpdateRequest.Duration: value is required",
+			"rpc error: code = InvalidArgument desc = invalid UpdateEventRequest.Duration: value is required",
 		},
 		{
-			&pb.UpdateRequest{
+			&pb.UpdateEventRequest{
 				Id:       faker.UUID(),
 				Title:    faker.StringWithSize(10),
 				StartsAt: timestamppb.Now(),
@@ -170,11 +172,11 @@ func (s *GRPCTestSuite) TestUpdateErrors() {
 }
 
 func (s *GRPCTestSuite) TestUpdate() {
-	event, _ := s.client.CreateEvent(context.TODO(), &pb.CreateRequest{
+	event, _ := s.client.CreateEvent(context.TODO(), &pb.CreateEventRequest{
 		Title: faker.StringWithSize(10),
 	})
 
-	req := &pb.UpdateRequest{
+	req := &pb.UpdateEventRequest{
 		Id:       event.GetId(),
 		Title:    faker.StringWithSize(10),
 		StartsAt: timestamppb.Now(),
@@ -192,15 +194,15 @@ func (s *GRPCTestSuite) TestUpdate() {
 
 func (s *GRPCTestSuite) TestDeleteErrors() {
 	tests := []struct {
-		req           *pb.DeleteRequest
+		req           *pb.DeleteEventRequest
 		expectedError string
 	}{
 		{
-			&pb.DeleteRequest{},
-			"rpc error: code = InvalidArgument desc = invalid DeleteRequest.Id: value must be a valid UUID | caused by: invalid uuid format",
+			&pb.DeleteEventRequest{},
+			"rpc error: code = InvalidArgument desc = invalid DeleteEventRequest.Id: value must be a valid UUID | caused by: invalid uuid format",
 		},
 		{
-			&pb.DeleteRequest{Id: faker.UUID()},
+			&pb.DeleteEventRequest{Id: faker.UUID()},
 			"rpc error: code = Internal desc = event delete error: event not found",
 		},
 	}
@@ -212,17 +214,17 @@ func (s *GRPCTestSuite) TestDeleteErrors() {
 }
 
 func (s *GRPCTestSuite) TestDelete() {
-	event, _ := s.client.CreateEvent(context.TODO(), &pb.CreateRequest{
+	event, _ := s.client.CreateEvent(context.TODO(), &pb.CreateEventRequest{
 		Title: faker.StringWithSize(10),
 	})
 
-	_, err := s.client.DeleteEvent(context.TODO(), &pb.DeleteRequest{
+	_, err := s.client.DeleteEvent(context.TODO(), &pb.DeleteEventRequest{
 		Id: event.GetId(),
 	})
 
 	require.NoError(s.T(), err)
 
-	_, err = s.client.UpdateEvent(context.TODO(), &pb.UpdateRequest{
+	_, err = s.client.UpdateEvent(context.TODO(), &pb.UpdateEventRequest{
 		Id:       event.GetId(),
 		Title:    faker.StringWithSize(10),
 		StartsAt: timestamppb.Now(),
@@ -235,28 +237,28 @@ func (s *GRPCTestSuite) TestDelete() {
 func (s *GRPCTestSuite) TestList() {
 	date := time.Date(2021, 6, 20, 0, 0, 0, 0, time.Local)
 
-	event1, _ := s.client.CreateEvent(context.TODO(), &pb.CreateRequest{
+	event1, _ := s.client.CreateEvent(context.TODO(), &pb.CreateEventRequest{
 		Title: faker.StringWithSize(10),
 	})
-	event2, _ := s.client.CreateEvent(context.TODO(), &pb.CreateRequest{
+	event2, _ := s.client.CreateEvent(context.TODO(), &pb.CreateEventRequest{
 		Title: faker.StringWithSize(10),
 	})
 
-	s.client.UpdateEvent(context.TODO(), &pb.UpdateRequest{
+	s.client.UpdateEvent(context.TODO(), &pb.UpdateEventRequest{
 		Id:       event1.GetId(),
 		Title:    faker.StringWithSize(10),
 		StartsAt: timestamppb.New(date.Add(90 * time.Minute)),
 		Duration: durationpb.New(time.Second),
 	})
 
-	s.client.UpdateEvent(context.TODO(), &pb.UpdateRequest{
+	s.client.UpdateEvent(context.TODO(), &pb.UpdateEventRequest{
 		Id:       event2.GetId(),
 		Title:    faker.StringWithSize(10),
-		StartsAt: timestamppb.New(date.AddDate(0, 0, 1)),
+		StartsAt: timestamppb.New(date.AddDate(0, 0, 2)),
 		Duration: durationpb.New(time.Second),
 	})
 
-	events, err := s.client.ListMonthEvents(context.TODO(), &pb.ListRequest{
+	events, err := s.client.ListMonthEvents(context.TODO(), &pb.ListEventsRequest{
 		Date: timestamppb.New(date),
 	})
 	require.NoError(s.T(), err)
@@ -264,14 +266,14 @@ func (s *GRPCTestSuite) TestList() {
 	require.Contains(s.T(), events.GetEvents()[0].GetId(), event1.GetId())
 	require.Contains(s.T(), events.GetEvents()[1].GetId(), event2.GetId())
 
-	events, err = s.client.ListWeekEvents(context.TODO(), &pb.ListRequest{
+	events, err = s.client.ListWeekEvents(context.TODO(), &pb.ListEventsRequest{
 		Date: timestamppb.New(date),
 	})
 	require.NoError(s.T(), err)
 	require.Len(s.T(), events.GetEvents(), 1)
 	require.Contains(s.T(), events.GetEvents()[0].GetId(), event1.GetId())
 
-	events, err = s.client.ListDayEvents(context.TODO(), &pb.ListRequest{
+	events, err = s.client.ListDayEvents(context.TODO(), &pb.ListEventsRequest{
 		Date: timestamppb.New(date),
 	})
 	require.NoError(s.T(), err)
@@ -280,19 +282,19 @@ func (s *GRPCTestSuite) TestList() {
 
 	nextMonthDate := date.AddDate(0, 1, 0)
 
-	events, err = s.client.ListMonthEvents(context.TODO(), &pb.ListRequest{
+	events, err = s.client.ListMonthEvents(context.TODO(), &pb.ListEventsRequest{
 		Date: timestamppb.New(nextMonthDate),
 	})
 	require.NoError(s.T(), err)
 	require.Len(s.T(), events.GetEvents(), 0)
 
-	events, err = s.client.ListWeekEvents(context.TODO(), &pb.ListRequest{
+	events, err = s.client.ListWeekEvents(context.TODO(), &pb.ListEventsRequest{
 		Date: timestamppb.New(nextMonthDate),
 	})
 	require.NoError(s.T(), err)
 	require.Len(s.T(), events.GetEvents(), 0)
 
-	events, err = s.client.ListDayEvents(context.TODO(), &pb.ListRequest{
+	events, err = s.client.ListDayEvents(context.TODO(), &pb.ListEventsRequest{
 		Date: timestamppb.New(nextMonthDate),
 	})
 	require.NoError(s.T(), err)

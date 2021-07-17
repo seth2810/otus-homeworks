@@ -20,15 +20,15 @@ message Event {
     google.protobuf.Duration notify_before = 7;
 }
 
-message CreateRequest {
+message CreateEventRequest {
     string title = 1 [(validate.rules).string.min_len = 10];
 }
 
-message CreateResponse {
+message CreateEventResponse {
     string id = 1;
 }
 
-message UpdateRequest {
+message UpdateEventRequest {
     string id = 1 [(validate.rules).string.uuid = true];
     string title = 2 [(validate.rules).string.min_len = 10];
     google.protobuf.Timestamp starts_at = 3 [(validate.rules).timestamp.required = true];
@@ -37,53 +37,58 @@ message UpdateRequest {
     google.protobuf.Duration notify_before = 6;
 }
 
-message UpdateResponse {
-    UpdateRequest event = 1;
+message UpdateEventResponse {
+    UpdateEventRequest event = 1;
 }
 
-message DeleteRequest {
+message DeleteEventRequest {
     string id = 1 [(validate.rules).string.uuid = true];
 }
 
-message ListRequest {
+message ListEventsRequest {
     google.protobuf.Timestamp date = 1 [(validate.rules).timestamp.required = true];
 }
 
-message ListResponse {
+message ListEventsResponse {
     repeated Event events = 1;
 }
 
 service CalendarService {
-    rpc CreateEvent(CreateRequest) returns (CreateResponse) {
+    rpc CreateEvent(CreateEventRequest) returns (CreateEventResponse) {
         option (google.api.http) = {
             post: "/events"
             body: "*"
         };
     }
-    rpc UpdateEvent(UpdateRequest) returns (UpdateResponse) {
+
+    rpc UpdateEvent(UpdateEventRequest) returns (UpdateEventResponse) {
         option (google.api.http) = {
             put: "/events/{id}"
             body: "*"
         };
     }
-    rpc DeleteEvent(DeleteRequest) returns (google.protobuf.Empty) {
+
+    rpc DeleteEvent(DeleteEventRequest) returns (google.protobuf.Empty) {
         option (google.api.http) = {
             delete: "/events/{id}"
         };
     }
-    rpc ListDayEvents(ListRequest) returns (ListResponse) {
+
+    rpc ListDayEvents(ListEventsRequest) returns (ListEventsResponse) {
         option (google.api.http) = {
             post: "/events/day"
             body: "*"
         };
     }
-    rpc ListWeekEvents(ListRequest) returns (ListResponse) {
+
+    rpc ListWeekEvents(ListEventsRequest) returns (ListEventsResponse) {
         option (google.api.http) = {
             post: "/events/week"
             body: "*"
         };
     }
-    rpc ListMonthEvents(ListRequest) returns (ListResponse) {
+
+    rpc ListMonthEvents(ListEventsRequest) returns (ListEventsResponse) {
         option (google.api.http) = {
             post: "/events/month"
             body: "*"

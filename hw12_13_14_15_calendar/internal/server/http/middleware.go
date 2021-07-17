@@ -5,8 +5,6 @@ import (
 	"net"
 	"net/http"
 	"time"
-
-	"github.com/seth2810/otus_homework/hw12_13_14_15_calendar/internal/app"
 )
 
 type statusCodeCatcher struct {
@@ -19,7 +17,7 @@ func (w *statusCodeCatcher) WriteHeader(code int) {
 	w.ResponseWriter.WriteHeader(code)
 }
 
-func loggingMiddleware(next http.Handler, logger app.Logger) http.Handler {
+func loggingMiddleware(next http.Handler, logger Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		scc := &statusCodeCatcher{w, http.StatusOK}

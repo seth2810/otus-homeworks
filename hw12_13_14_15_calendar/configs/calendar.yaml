@@ -3,7 +3,7 @@ logger:
   file: /dev/stdout
 
 storage:
-  type: memory
+  type: sql
   database:
     host: localhost
     port: 5432

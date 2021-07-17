@@ -2,23 +2,51 @@ package sqlstorage
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/pressly/goose"
+	"github.com/seth2810/otus_homework/hw12_13_14_15_calendar/internal/config"
 	"github.com/seth2810/otus_homework/hw12_13_14_15_calendar/internal/storage"
+	"github.com/seth2810/otus_homework/hw12_13_14_15_calendar/migrations"
 )
+
+func init() {
+	goose.AddNamedMigration("00001_create_events_table.go", migrations.Up0001, migrations.Down0001)
+}
 
 type Storage struct {
 	db *sqlx.DB
 }
 
-func New(dsn string) (*Storage, error) {
-	db, err := sqlx.Open("postgres", dsn)
+func Init(ctx context.Context, cfg config.DatabaseConfig) (*Storage, error) {
+	dsn := fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DB,
+	)
+
+	db, err := goose.OpenDBWithDriver("postgres", dsn)
 	if err != nil {
+		return nil, fmt.Errorf("failed to open DB: %w", err)
+	}
+
+	if err := goose.Up(db, "migrations"); err != nil {
+		return nil, fmt.Errorf("failed to migrate: %w", err)
+	}
+
+	storage := New(db)
+
+	if err := storage.Connect(ctx); err != nil {
 		return nil, err
 	}
 
-	return &Storage{db}, nil
+	return storage, nil
+}
+
+func New(conn *sql.DB) *Storage {
+	return &Storage{sqlx.NewDb(conn, "postgres")}
 }
 
 func (s *Storage) Connect(ctx context.Context) error {
@@ -80,7 +108,7 @@ func (s *Storage) ListMonthEvents(ctx context.Context, date time.Time) ([]storag
 func (s *Storage) listEventsBetween(ctx context.Context, from, to time.Time) ([]storage.Event, error) {
 	events := []storage.Event{}
 
-	if err := s.db.SelectContext(ctx, &events, "select * from events where starts_at between ? and ?", from, to); err != nil {
+	if err := s.db.SelectContext(ctx, &events, "select * from events where starts_at between ? and ?", from.String(), to.String()); err != nil {
 		return nil, err
 	}
 

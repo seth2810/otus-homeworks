@@ -10,3 +10,10 @@ services:
       POSTGRES_USER: calendar
       POSTGRES_PASSWORD: calendar
       POSTGRES_DB: calendar
+
+  mq:
+    image: rabbitmq:3.8.17-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    restart: always
